@@ -36,6 +36,7 @@ namespace CGrep {
                     ti = CThreadInfo.CurrentThreadInfo; ti.Name = "Scan File Process";
                     fetchFileList(files => { totalFilesAdded += scanFiles(files); });
                 }
+                catch (ThreadAbortException) { Thread.ResetAbort(); } catch (ThreadInterruptedException) { }
                 catch (Exception ex) { ProgressUI.hide(); CExceptionHandler.goster(null, ex); }
                 finally { ti = null; }
             }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
@@ -131,13 +132,14 @@ namespace CGrep {
                 catch (SystemException) { }
             };
             Action<string> addDir = null; addDir = dirPath => {
-				try {
-					if (!Directory.Exists(dirPath)) { return; } addFiles(dirPath); Application.DoEvents(); if (!includeSubDirs) { return; }
+                try {
+                    if (!Directory.Exists(dirPath)) { return; } addFiles(dirPath); Application.DoEvents(); if (!includeSubDirs) { return; }
                     var dirs = Directory.GetDirectories(dirPath, "*.*", SearchOption.TopDirectoryOnly); if (dirs?.Length == 0) { return; }
-                    Parallel.ForEach(dirs, new ParallelOptions() { MaxDegreeOfParallelism = 1, TaskScheduler = TaskScheduler.Default }, subDirPath => addDir(subDirPath));
+                    /*Parallel.ForEach(dirs, new ParallelOptions() { MaxDegreeOfParallelism = 1, TaskScheduler = TaskScheduler.Default }, subDirPath => addDir(subDirPath));*/
+                    foreach (var subDirPath in dirs) { addDir(subDirPath); }
                 }
-                catch (SystemException) { }
-			};
+				catch (SystemException) { }
+            };
             addDir(rootDir);
 		}
         protected int scanFiles(string[] files = null) {
@@ -145,26 +147,26 @@ namespace CGrep {
 			/*var pUI = ProgressUI.self; if (pUI != null) { pUI.uiLblMsg.Text = "Dosyalar aranýyor..."; } Application.DoEvents();
             if (pUI != null) { pUI.uiProgressBar1.Style = ProgressBarStyle.Continuous; pUI.uiProgressBar1.Minimum = 0; pUI.uiProgressBar1.Maximum = files.Length; pUI.uiProgressBar1.Value = 0; }*/
 			var pUI = ProgressUI.self; int refreshCounter = 0, filesAdded = 0;
-            var maxSizeBytes = uiMaxFileSize.Text.toDouble() * 1024 * 1024; string searchText = uiSearchText.Text, searchTextLower = searchText.ToLower();
-            var replaceFlag = uiSearchAndReplace.Checked; var replaceText = replaceFlag ? uiReplaceText.Text : null;
+            var maxSizeBytes = uiMaxFileSize.Text.toDouble() * 1024 * 1024; string searchText = uiSearchText.Text; var hasSearchText = searchText.bosDegilMi(); 
+            var searchTextLower = hasSearchText ? searchText.ToLower() : null; var replaceFlag = uiSearchAndReplace.Checked; var replaceText = replaceFlag ? uiReplaceText.Text : null;
 			foreach (var filePath in files) {
-                if (refreshCounter > 20) { Application.DoEvents(); refreshCounter = 0; }
+                if (refreshCounter++ > 5) { Application.DoEvents(); refreshCounter = 0; }
                 try {
                     if (pUI != null && refreshCounter == 0) { pUI.uiLblMsg.Text = string.Format("[{0}]...", filePath); /*if (pUI != null) { pUI.uiProgressBar1.Value++; }*/ }
                     var file = filePath.asFileInfo(); if (!file.Exists) { continue; } var fileSize = file.Length; if (fileSize > maxSizeBytes) { continue; }
-                    var data = File.ReadAllText(filePath, Encoding.Default);
-                    if (data.ToLower().Contains(searchTextLower)) {
+                    var data = hasSearchText  ? File.ReadAllText(filePath, Encoding.Default) : null;
+                    if (!hasSearchText || data.ToLower().Contains(searchTextLower)) {
                         string fileDir = filePath.Substring(0, filePath.Length - Path.GetFileName(filePath).Length);
-						var item = new ListViewItem(); item.Tag = filePath; item.Text = Path.GetFileName(filePath); item.SubItems.Add((fileSize / 1024).ToString() + " KB");
+						var item = new ListViewItem { Tag = filePath, Text = Path.GetFileName(filePath) }; item.SubItems.Add((fileSize / 1024).ToString() + " KB");
                         item.SubItems.Add(File.GetLastWriteTime(filePath).ToString()); item.SubItems.Add(fileDir);
                         try { uiFindFilesList.Groups.Add(fileDir, fileDir); item.Group = uiFindFilesList.Groups[fileDir]; } catch (Exception) { }
                         uiFindFilesList.Items.Add(item); if (replaceFlag) { data = data.Replace(searchText, replaceText); File.WriteAllText(filePath, data, Encoding.Default); }
-                        refreshCounter++; filesAdded++;
+                        filesAdded++;
                     }
                 }
                 catch (SystemException ex) { }
             }
-            return filesAdded;
+			Application.DoEvents(); return filesAdded;
         }
         private void dizinListesiAc() {
             var dlgUI = new FolderBrowserDialog() { ShowNewFolderButton = true, Description = "Aramanýn yapýlacaðý dizini seçiniz", SelectedPath = uiSearchDirectory.Text };
