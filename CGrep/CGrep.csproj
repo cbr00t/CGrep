@@ -110,6 +110,16 @@
       <Install>true</Install>
     </BootstrapperPackage>
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\ortak\COrtakLib40\COrtakLib40\COrtakLib40.csproj">
+      <Project>{166120a4-93ee-4cee-bc1f-7da6c7eb0d8e}</Project>
+      <Name>COrtakLib40</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\ortak\COrtakLib\COrtakLib\COrtakLib.csproj">
+      <Project>{2709740a-ba5c-41ed-9fbb-25b944ee22af}</Project>
+      <Name>COrtakLib</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
